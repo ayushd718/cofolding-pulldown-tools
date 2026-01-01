@@ -16,7 +16,7 @@ This project uses **uv** for dependency and environment management. You can find
 Clone the repository and sync dependencies:
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/ayushd718/cofolding-pulldown-tools
 cd cofolding-pulldown-tools
 uv sync
 ```
