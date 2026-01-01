@@ -84,7 +84,7 @@ Currently all outputs are written to the working directory.
 
 MIT License 
 
-## Referneces
+## References
 
 - Ahmad S, da Costa Gonzales L J, Bowler-Barnett E H, Rice D L, Kim M, Wijerathne S, Luciani A, Kandasaamy S, Luo J, Watkins X, Turner E, Martin M J, UniProt Consortium The UniProt website API: facilitating programmatic access to protein knowledge Nucleic Acids Research, gkaf394 (2025)
 
