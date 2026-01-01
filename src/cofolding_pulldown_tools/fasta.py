@@ -1,0 +1,105 @@
+import os
+import math
+
+def clean_fasta(fasta_file: os.PathLike):
+
+    abs_path = os.path.abspath(fasta_file)
+    root, ext = os.path.splitext(abs_path)
+
+    new_file = []
+    seq = ""
+    with open(abs_path, "r") as file:
+        for line in file:
+            if line.startswith(">"):
+                if seq:
+                    new_file.append(seq)
+                seq = ""
+                subline = line[line.find("|")+1:]
+                acc_id = subline[:subline.find("|")]
+                entry_name = subline[subline.find("|")+1:subline.find(" ")]
+                new_header = f">{acc_id}_{entry_name}"
+                new_file.append(new_header)
+            else:
+                seq += line.rstrip()
+        if seq:
+            new_file.append(seq)
+    
+    with open(f"{root}_cleaned{ext}", 'w') as file:
+        file.write("\n".join(new_file))
+    
+    return print(f"cleaned fasta file written to {root}_cleaned{ext}")
+
+def slice_fasta(fasta_file: os.PathLike, max_length: int, window: int | None):
+
+    abs_path = os.path.abspath(fasta_file)
+    root, ext = os.path.splitext(abs_path)
+
+    if not window:
+        window = 0
+
+    max_length = int(max_length)
+    
+    window = int(window)
+
+    if max_length <= 0:
+        raise ValueError("max_length must be greater than 0")
+    if window < 0:
+        raise ValueError("window must be greater than or equal to 0")
+    if window >= max_length:
+        raise ValueError("window must be smaller than max_length")
+    
+    new_file = []
+    current_header = ""
+    sliced_header = ""
+    sliced_fasta = ""
+    seen_seq = False
+    with open(abs_path, "r") as file:
+        for line in file:
+            line = line.rstrip()
+            if line.startswith(">"):
+                seen_seq = False
+                current_header = line
+                continue
+            if len(line) <= max_length:
+                if seen_seq:
+                    raise Exception("The submitted fasta file does not have single line sequences")
+                seen_seq = True
+                new_file.append(current_header)
+                new_file.append(line)
+                continue 
+            
+            if seen_seq:
+               raise Exception("The submitted fasta file does not have single line sequences")
+            seen_seq = True 
+
+            min_chunks = math.ceil(len(line)/max_length)
+            step = int(math.ceil((len(line)-window)/min_chunks))
+            chunk_len = step + window
+            while chunk_len > max_length:
+                min_chunks += 1
+                step = int(math.ceil((len(line)-window)/min_chunks))
+                chunk_len = step + window
+            for k in range(min_chunks):
+                start = k * step
+                end = start + chunk_len
+                if k == min_chunks-1:
+                    sliced_fasta = line[start:len(line)]
+                    sliced_header = f"{current_header}_{start+1}-{len(line)}"
+                    new_file.append(sliced_header)
+                    new_file.append(sliced_fasta)
+                else:
+                    sliced_fasta = line[start:end]
+                    sliced_header = f"{current_header}_{start+1}-{end}"
+                    new_file.append(sliced_header)
+                    new_file.append(sliced_fasta) 
+
+    with open(f"{root}_sliced{ext}", 'w') as file:
+        file.write("\n".join(new_file))
+    
+    return print(f"sliced fasta file written to {root}_sliced{ext}") 
+
+def generate_bait_prey(fasta: os.PathLike, baits: os.PathLike, double_count: bool):
+    """
+    Planned function that will generate bait and prey files in alphapulldown format
+    """ 
+    pass
