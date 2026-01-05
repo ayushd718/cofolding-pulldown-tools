@@ -21,10 +21,18 @@ Alternative you can install directly from github in a clean virtual environment 
 ```
 pip install git+https://github.com/ayushd718/cofolding-pulldown-tools.git
 ```
+The following commands can be used to look at subcommands
+```
+cpt --help
+cpt fetch query --help
+cpt fetch acc --help
+cpt fasta clean --help
+cpt fasta slice --help
 
+```
 ## Command line usage
 
-### Fetch FASTA from UniProt
+### Fetch FASTAs from UniProt
 
 #### by query
 
@@ -49,7 +57,7 @@ The accessions.txt file must contain UniProt accessions (e.g. P04637 for human p
 
 ### FASTA processing
 
-#### cleaning headers and ensuring FASTA sequenes
+#### cleaning headers and ensuring FASTA sequences
 ```bash
 cpt fasta clean --file file.fasta
 ```
@@ -66,16 +74,31 @@ Inputs are assumed to have UniProt-style pipe delimited headers.
 
 #### slicing FASTA sequences
 ```bash
-cpt fasta fetch \
+cpt fasta slice \
     --file file.fasta
-    --max_slice 500
+    --max_slice 400
     --window 50
 ```
-The above command will go through file.fasta and output file_sliced.fasta, which will contain evenly slices fasta sequences for sequences larger than 500 with overlapping windows of length 50 between slices. 
+The above command will go through file.fasta and output file_sliced.fasta, which will contain sliced fasta sequences for sequences larger than 400 with overlapping windows of length 50 between slices. 
+
+It is assumed that the input file is formatted using the **cpt clean** command (mainly sequences are on a single line)
+
+The function is implemented in a way to ensure that there are no short left over tails that can occur from hard slicing, and that the protein sequence chunks are roughly evenly sliced.
+
+The headers will be renamed to include ranges of the sequences sliced as below: 
+```
+>ACC_PROT_TAX ###Protein with 1000aa
+
+>ACC_PROT_TAX_1-367
+
+>ACC_PROT_TAX_318-684
+
+>ACC_PROT_TAX_635-1000
+```
 
 The main function of this tool is to allow for easy pre-processing of fasta files for large in-silico cofolding screens. 
 
-Currently all outputs are written to the working directory. 
+Currently all outputs are written to the working directory.
 
 ## Installation (development)
 
