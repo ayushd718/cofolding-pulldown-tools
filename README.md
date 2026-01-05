@@ -8,25 +8,22 @@ The package currently provides:
 - FASTA slicing into fixed-length overlapping windows
 
 Additional functionality (input generation, analysis and plotting of results etc.) is planned.
+## Installation (users)
 
-## Installation (development)
-
-This project uses **uv** for dependency and environment management. You can find installation instructions for it [here.](https://github.com/astral-sh/uv)
-
-Clone the repository and sync dependencies:
+You can install directly from github with **uv tool**, which will install this package in an isolated environment and add the **cpt** command to your global path. 
 
 ```bash
-git clone https://github.com/ayushd718/cofolding-pulldown-tools
-cd cofolding-pulldown-tools
-uv sync
+uv tool install git+https://github.com/ayushd718/cofolding-pulldown-tools.git
 ```
+
+Alternative you can install directly from github in a clean virtual environment of your choice with pip.
+
+```
+pip install git+https://github.com/ayushd718/cofolding-pulldown-tools.git
+```
+
 ## Command line usage
 
-Run CLI and look at subcommands with:
-
-```bash
-uv run cpt --help
-```
 ### Fetch FASTA from UniProt
 
 #### by query
@@ -80,6 +77,22 @@ The main function of this tool is to allow for easy pre-processing of fasta file
 
 Currently all outputs are written to the working directory. 
 
+## Installation (development)
+
+This project uses **uv** for dependency and environment management. You can find installation instructions for it [here.](https://github.com/astral-sh/uv)
+
+Clone the repository and sync dependencies:
+
+```bash
+git clone https://github.com/ayushd718/cofolding-pulldown-tools
+cd cofolding-pulldown-tools
+uv sync
+```
+Run CLI and look at subcommands with:
+
+```bash
+uv run cpt --help
+```
 ## License
 
 MIT License 
