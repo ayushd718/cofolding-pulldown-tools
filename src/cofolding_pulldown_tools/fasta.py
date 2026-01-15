@@ -84,12 +84,12 @@ def slice_fasta(fasta_file: os.PathLike, max_length: int, window: int | None):
                 end = start + chunk_len
                 if k == min_chunks-1:
                     sliced_fasta = line[start:len(line)]
-                    sliced_header = f"{current_header}_{start+1}-{len(line)}"
+                    sliced_header = f"{current_header},{start+1}-{len(line)}"
                     new_file.append(sliced_header)
                     new_file.append(sliced_fasta)
                 else:
                     sliced_fasta = line[start:end]
-                    sliced_header = f"{current_header}_{start+1}-{end}"
+                    sliced_header = f"{current_header},{start+1}-{end}"
                     new_file.append(sliced_header)
                     new_file.append(sliced_fasta) 
 
@@ -98,8 +98,26 @@ def slice_fasta(fasta_file: os.PathLike, max_length: int, window: int | None):
     
     return print(f"sliced fasta file written to {root}_sliced{ext}") 
 
-def generate_bait_prey(fasta: os.PathLike, baits: os.PathLike, double_count: bool):
+def generate_bait_prey(prey_fasta: os.PathLike, bait: str, double_count: bool = False):
     """
     Planned function that will generate bait and prey files in alphapulldown format
     """ 
-    pass
+    base_name, ext = os.path.splitext(os.path.basename(prey_fasta))
+    root, ext2 = os.path.splitext(os.path.abspath(prey_fasta))
+
+    if ';' in bait: 
+        bait_prots = bait.split(';')
+    else:
+        bait_prots = [bait]
+
+    with open(prey_fasta, 'r') as rfile, open(f'{base_name}_complex.txt', 'w') as wfile:
+        for line in rfile:
+            if line.startswith('>'):
+                processed_line = line.replace('>', '')
+                for prot in bait_prots:
+                    if not double_count:
+                        if prot == processed_line:
+                            continue
+                    wfile.write(f'{prot};{processed_line}')
+
+    return print(f'bait;prey file written to {root}_complex.txt') 

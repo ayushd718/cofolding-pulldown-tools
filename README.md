@@ -28,7 +28,7 @@ cpt fetch query --help
 cpt fetch acc --help
 cpt fasta clean --help
 cpt fasta slice --help
-
+cpt fasta complex --help
 ```
 ## Command line usage
 
@@ -70,7 +70,7 @@ into:
 >P04637_P53_HUMAN
 ```
 The output, file_cleaned.fasta, will have each FASTA sequence on a single line (not wrapped).
-Inputs are assumed to have UniProt-style pipe delimited headers.
+Inputs are assumed to have UniProt-style pipe delimited headers. It is recommended to use this fasta file to generate MSAs or generate features if using a tool like alphapulldown etc. 
 
 #### slicing FASTA sequences
 ```bash
@@ -89,12 +89,36 @@ The headers will be renamed to include ranges of the sequences sliced as below:
 ```
 >ACC_PROT_TAX ###Protein with 1000aa
 
->ACC_PROT_TAX_1-367
+>ACC_PROT_TAX,1,367
 
->ACC_PROT_TAX_318-684
+>ACC_PROT_TAX,318-684
 
->ACC_PROT_TAX_635-1000
+>ACC_PROT_TAX,635-1000
 ```
+#### generating bait;prey complex txt file
+```bash
+cpt fasta complex \
+    --file file.fasta
+    --bait 'protein1;protein2'
+    --double_count
+```
+The above command will generate a .txt file of complexes with individual bait proteins supplied by the --bait flag and prey proteins from file.fasta. If the --double_count flag is used, bait proteins detected in the prey file will be paired with themselves as well.
+
+For example if file.fasta contains: 
+```
+>proteinA
+...
+>proteinB
+...
+```
+The file_complex.txt file will look like:
+```
+protein1;proteinA
+protein2;proteinA
+protein1;proteinB
+protein2;proteinB
+```
+
 
 The main function of this tool is to allow for easy pre-processing of fasta files for large in-silico cofolding screens. 
 

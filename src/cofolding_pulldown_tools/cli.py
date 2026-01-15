@@ -1,5 +1,5 @@
 import argparse
-from .fasta import clean_fasta, slice_fasta
+from .fasta import clean_fasta, slice_fasta, generate_bait_prey
 from .fetch import fetch_fasta_by_query, fetch_fasta_by_accession
 
 def main():
@@ -9,7 +9,7 @@ def main():
 
     fetch_parser = subparsers.add_parser("fetch", help="Use 'query' or 'acc' subcommands to fetch fasta files from uniprot.")
     fetch_sub = fetch_parser.add_subparsers(dest="fetch_mode", required=True)
-    fasta_parser = subparsers.add_parser("fasta", help="Use 'clean' or 'slice' subcommands to process fasta files and associated")
+    fasta_parser = subparsers.add_parser("fasta", help="Use 'clean', 'slice' or 'complex' subcommands to process fasta files")
     fasta_sub = fasta_parser.add_subparsers(dest="fasta_mode", required=True)
 
     fetch_query = fetch_sub.add_parser("query")
@@ -27,6 +27,11 @@ def main():
     fasta_slice.add_argument("--file", required=True)
     fasta_slice.add_argument("--max_slice", required=True)
     fasta_slice.add_argument("--window")
+
+    fasta_complex = fasta_sub.add_parser("complex")
+    fasta_complex.add_argument("--file", required=True)
+    fasta_complex.add_argument("--bait", required=True)
+    fasta_complex.add_argument("--double_count", action='store_true')
     
     args = parser.parse_args()
     
@@ -49,8 +54,15 @@ def main():
             slice_fasta(
                 args.file,
                 max_length=args.max_slice,
-                window=args.window,
+                window=args.window
             )
+        elif args.fasta_mode == "complex":
+            generate_bait_prey(
+                prey_fasta=args.file,
+                bait=args.bait,
+                double_count=args.double_count
+            )
+
 
 if __name__ == "__main__":
     main()
