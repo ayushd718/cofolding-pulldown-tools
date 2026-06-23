@@ -1,153 +1,111 @@
 # cofolding-pulldown-tools
 
-A small command-line toolkit for fetching and workign with protein sequence files, designed to support co-folding and pulldown workflows (such as [AlphaPulldown](https://github.com/KosinskiLab/AlphaPulldown)).
+A command-line toolkit designed to facilitate high-throughput protein sequence preparation for co-folding and PPI pulldown workflows, such as [AlphaPulldown](https://github.com/KosinskiLab/AlphaPulldown).
 
-The package currently provides:
-- FASTA retrieval from UniProt (by query or accession list)
-- FASTA header cleaning (UniProt → simplified headers)
-- FASTA slicing into fixed-length overlapping windows
+## Key Features
 
-Additional functionality (input generation, analysis and plotting of results etc.) is planned.
-## Installation (users)
+- **Automated FASTA Retrieval**: Fetch sequences directly from UniProt via query strings or accession lists.
+- **Header Standardization**: Convert complex UniProt headers into simplified, machine-readable formats.
+- **Sequence Slicing**: Automatically slice long sequences into fixed-length overlapping windows to suit modeling constraints.
+- **Complex Generation**: Generate bait-prey pair files for high-throughput interaction screens.
 
-You can install directly from github with **uv tool**, which will install this package in an isolated environment and add the **cpt** command to your global path. 
+## Requirements
+
+- Python >= 3.10
+- [uv](https://github.com/astral-sh/uv) (recommended for installation and dependency management)
+
+## Installation & Usage
+
+### For Users
+You can install the tool globally using **uv tool**, which runs it in an isolated environment and adds the `cpt` command to your path:
 
 ```bash
 uv tool install git+https://github.com/ayushd718/cofolding-pulldown-tools.git
 ```
 
-Alternative you can install directly from github in a clean virtual environment of your choice with pip.
+Alternatively, use `pip`:
 
-```
+```bash
 pip install git+https://github.com/ayushd718/cofolding-pulldown-tools.git
 ```
-The following commands can be used to look at subcommands
-```
+
+Use the `cpt` command for operations:
+```bash
 cpt --help
-cpt fetch query --help
-cpt fetch acc --help
-cpt fasta clean --help
-cpt fasta slice --help
-cpt fasta complex --help
-```
-## Command line usage
-
-### Fetch FASTAs from UniProt
-
-#### by query
-
-```bash
-cpt fetch query \
-    --query p53 \
-    --taxonomy_id 9606 \
-    --reviewed true
-```
-- --query takes a UniProt query string
-- --taxonomy_id takes an NCBI taxonomy_ID (e.g. 9606 for humans)
-- --reviewed takes true or false
-
-Any subset of these argumens can be provided, but at least one is required. Outputs for the above command would be p53_9606_reviewed.fasta
-
-#### by accession list
-
-```bash
-cpt fetch acc --file accessions.txt
-```
-The accessions.txt file must contain UniProt accessions (e.g. P04637 for human p53) separated by line. Outputs for the above command would be accessions.fasta 
-
-### FASTA processing
-
-#### cleaning headers and ensuring FASTA sequences
-```bash
-cpt fasta clean --file file.fasta
-```
-Converts headers from: 
-```
->sp|P04637|P53_HUMAN ...
-```
-into:
-```
->P04637_P53_HUMAN
-```
-The output, file_cleaned.fasta, will have each FASTA sequence on a single line (not wrapped).
-Inputs are assumed to have UniProt-style pipe delimited headers. It is recommended to use this fasta file to generate MSAs or generate features if using a tool like alphapulldown etc. 
-
-#### slicing FASTA sequences
-```bash
-cpt fasta slice \
-    --file file.fasta
-    --max_slice 400
-    --window 50
-```
-The above command will go through file.fasta and output file_sliced.fasta, which will contain sliced fasta sequences for sequences larger than 400 with overlapping windows of length 50 between slices. 
-
-It is assumed that the input file is formatted using the **cpt clean** command (mainly sequences are on a single line)
-
-The function is implemented in a way to ensure that there are no short left over tails that can occur from hard slicing, and that the protein sequence chunks are roughly evenly sliced.
-
-The headers will be renamed to include ranges of the sequences sliced as below: 
-```
->ACC_PROT_TAX ###Protein with 1000aa
-
->ACC_PROT_TAX,1,367
-
->ACC_PROT_TAX,318-684
-
->ACC_PROT_TAX,635-1000
-```
-#### generating bait;prey complex txt file
-```bash
-cpt fasta complex \
-    --file file.fasta
-    --bait 'protein1;protein2'
-    --double_count
-```
-The above command will generate a .txt file of complexes with individual bait proteins supplied by the --bait flag and prey proteins from file.fasta. If the --double_count flag is used, bait proteins detected in the prey file will be paired with themselves as well.
-
-For example if file.fasta contains: 
-```
->proteinA
-...
->proteinB
-...
-```
-The file_complex.txt file will look like:
-```
-protein1;proteinA
-protein2;proteinA
-protein1;proteinB
-protein2;proteinB
 ```
 
-
-The main function of this tool is to allow for easy pre-processing of fasta files for large in-silico cofolding screens. 
-
-Currently all outputs are written to the working directory.
-
-## Installation (development)
-
-This project uses **uv** for dependency and environment management. You can find installation instructions for it [here.](https://github.com/astral-sh/uv)
-
-Clone the repository and sync dependencies:
+### For Developers
+Clone the repository and sync dependencies using `uv`:
 
 ```bash
 git clone https://github.com/ayushd718/cofolding-pulldown-tools
 cd cofolding-pulldown-tools
 uv sync
 ```
-Run CLI and look at subcommands with:
 
+Use `uv run` to execute the CLI within the development environment:
 ```bash
 uv run cpt --help
 ```
-## License
 
-MIT License 
+## CLI Reference
+
+| Subcommand | Action |
+| :--- | :--- |
+| `cpt fetch query` | Fetch FASTA by query string/taxonomy/reviewed status |
+| `cpt fetch acc` | Fetch FASTA by a file containing accession IDs |
+| `cpt fasta clean` | Simplify FASTA headers and format sequence lines |
+| `cpt fasta slice` | Slice large sequences into overlapping windows |
+| `cpt fasta complex` | Generate a bait-prey pairing file |
+
+### Fetching from UniProt
+
+#### By Query
+```bash
+cpt fetch query \
+    --query p53 \
+    --taxonomy_id 9606 \
+    --reviewed true
+```
+
+#### By Accession List
+```bash
+cpt fetch acc --file accessions.txt
+```
+
+### FASTA Processing
+
+#### Cleaning
+```bash
+cpt fasta clean --file file.fasta
+```
+Converts `>sp|P04637|P53_HUMAN` to `>P04637_P53_HUMAN`. Ensures sequences are on a single line.
+
+#### Slicing
+```bash
+cpt fasta slice \
+    --file file.fasta \
+    --max_slice 400 \
+    --window 50
+```
+Slices sequences larger than `max_slice`, using a `window` for overlap.
+
+#### Generating Complexes
+```bash
+cpt fasta complex \
+    --file file.fasta \
+    --bait 'protein1;protein2' \
+    --double_count
+```
+Generates a `.txt` file mapping bait proteins to all sequences in the input FASTA.
+
+---
+*Note: All outputs are currently written to the working directory.*
+
+## License
+MIT License
 
 ## References
-
-- Ahmad S, da Costa Gonzales L J, Bowler-Barnett E H, Rice D L, Kim M, Wijerathne S, Luciani A, Kandasaamy S, Luo J, Watkins X, Turner E, Martin M J, UniProt Consortium The UniProt website API: facilitating programmatic access to protein knowledge Nucleic Acids Research, gkaf394 (2025)
-
-- AlphaPulldown2—a general pipeline for high-throughput structural modeling: https://github.com/KosinskiLab/AlphaPulldown
-
+- Ahmad S, et al. "The UniProt website API: facilitating programmatic access to protein knowledge." Nucleic Acids Research, 2025.
+- AlphaPulldown2: https://github.com/KosinskiLab/AlphaPulldown
 - uv: https://github.com/astral-sh/uv
