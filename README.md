@@ -8,6 +8,7 @@ A command-line toolkit designed to facilitate high-throughput protein sequence p
 - **Header Standardization**: Convert complex UniProt headers into simplified, machine-readable formats.
 - **Sequence Slicing**: Automatically slice long sequences into fixed-length overlapping windows to suit modeling constraints.
 - **Complex Generation**: Generate bait-prey pair files for high-throughput interaction screens.
+- **Result Analysis**: Analyze cofolding outputs to generate summary CSVs including ipSAE, pDockQ, and iPTM scores.
 
 ## Requirements
 
@@ -57,6 +58,7 @@ uv run cpt --help
 | `cpt fasta clean` | Simplify FASTA headers and format sequence lines |
 | `cpt fasta slice` | Slice large sequences into overlapping windows |
 | `cpt fasta complex` | Generate a bait-prey pairing file |
+| `cpt analyze` | Analyze cofolding results and generate a summary CSV |
 
 ### Fetching from UniProt
 
@@ -98,6 +100,12 @@ cpt fasta complex \
     --double_count
 ```
 Generates a `file_complex.txt` file mapping bait proteins to all sequences in the input FASTA. This function validates that all provided bait proteins are present as headers in the input FASTA file.
+
+### Analyzing Results
+```bash
+cpt analyze --dir /path/to/structures_output
+```
+Processes all subdirectories in the specified directory to compute ipSAE and pDockQ scores for predicted structures, aggregating them with iPTM data into a `results_summary.csv` file.
 
 ---
 *Note: All outputs are currently written to the working directory.*

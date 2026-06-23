@@ -1,6 +1,7 @@
 import argparse
 from .fasta import clean_fasta, slice_fasta, generate_bait_prey
 from .fetch import fetch_fasta_by_query, fetch_fasta_by_accession
+from .analysis import generate_csv
 
 def main():
     parser = argparse.ArgumentParser(prog="cpt", description="FASTA utilities for Uniprot workflows")
@@ -11,6 +12,9 @@ def main():
     fetch_sub = fetch_parser.add_subparsers(dest="fetch_mode", required=True)
     fasta_parser = subparsers.add_parser("fasta", help="Use 'clean', 'slice' or 'complex' subcommands to process fasta files")
     fasta_sub = fasta_parser.add_subparsers(dest="fasta_mode", required=True)
+    
+    analyze_parser = subparsers.add_parser("analyze", help="Analyze cofolding results and generate a summary CSV")
+    analyze_parser.add_argument("--dir", required=True, help="Directory containing cofolding output folders")
 
     fetch_query = fetch_sub.add_parser("query")
     fetch_query.add_argument("--query")
@@ -62,6 +66,8 @@ def main():
                 bait=args.bait,
                 double_count=args.double_count
             )
+    elif args.command == "analyze":
+        generate_csv(args.dir)
 
 
 if __name__ == "__main__":
