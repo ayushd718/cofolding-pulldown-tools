@@ -110,8 +110,8 @@ def generate_bait_prey(prey_fasta: os.PathLike, bait: str, double_count: bool = 
     base_name, ext = os.path.splitext(os.path.basename(prey_fasta))
     root, _ = os.path.splitext(os.path.abspath(prey_fasta))
 
-    if ';' in bait: 
-        bait_prots = {b.strip() for b in bait.split(';')}
+    if ',' in bait: 
+        bait_prots = {b.strip() for b in bait.split(',')}
     else:
         bait_prots = {bait.strip()}
 

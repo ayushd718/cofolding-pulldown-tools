@@ -94,7 +94,7 @@ Slices sequences larger than `max_slice`, using a `window` for overlap.
 ```bash
 cpt fasta complex \
     --file file.fasta \
-    --bait 'protein1;protein2' \
+    --bait 'protein1,protein2...' \
     --double_count
 ```
 Generates a `file_complex.txt` file mapping bait proteins to all sequences in the input FASTA. This function validates that all provided bait proteins are present as headers in the input FASTA file.
