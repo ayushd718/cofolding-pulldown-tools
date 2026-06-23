@@ -97,7 +97,7 @@ cpt fasta complex \
     --bait 'protein1;protein2' \
     --double_count
 ```
-Generates a `.txt` file mapping bait proteins to all sequences in the input FASTA.
+Generates a `file_complex.txt` file mapping bait proteins to all sequences in the input FASTA. This function validates that all provided bait proteins are present as headers in the input FASTA file.
 
 ---
 *Note: All outputs are currently written to the working directory.*

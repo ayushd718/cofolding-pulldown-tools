@@ -104,26 +104,36 @@ def slice_fasta(fasta_file: os.PathLike, max_length: int, window: int | None):
 
 def generate_bait_prey(prey_fasta: os.PathLike, bait: str, double_count: bool = False):
     """
-    Planned function that will generate bait and prey files in alphapulldown format
+    Generates a bait-prey pairing file in 'prey;bait' format.
+    Validates that all bait proteins are present in the provided FASTA file.
     """ 
     base_name, ext = os.path.splitext(os.path.basename(prey_fasta))
-    root, ext2 = os.path.splitext(os.path.abspath(prey_fasta))
+    root, _ = os.path.splitext(os.path.abspath(prey_fasta))
 
     if ';' in bait: 
-        bait_prots = [b.strip() for b in bait.split(';')]
+        bait_prots = {b.strip() for b in bait.split(';')}
     else:
-        bait_prots = [bait.strip()]
+        bait_prots = {bait.strip()}
 
-    output_path = f'{base_name}_complex.txt'
-    with open(prey_fasta, 'r') as rfile, open(output_path, 'w') as wfile:
+    # Extract all unique prey headers from the FASTA file
+    prey_prots = set()
+    with open(prey_fasta, 'r') as rfile:
         for line in rfile:
             if line.startswith('>'):
-                processed_line = line.strip().lstrip('>')
-                for prot in bait_prots:
-                    if not double_count:
-                        if prot == processed_line:
-                            continue
-                    wfile.write(f'{prot};{processed_line}\n')
+                prey_prots.add(line.strip().lstrip('>'))
 
-    print(f'bait;prey file written to {root}_complex.txt')
+    # Validate that all baits exist in the FASTA file
+    missing_baits = bait_prots - prey_prots
+    if missing_baits:
+        raise ValueError(f"The following bait proteins were not found in the FASTA file: {', '.join(missing_baits)}")
+
+    output_path = f'{root}_complex.txt'
+    with open(output_path, 'w') as wfile:
+        for prey in prey_prots:
+            for b in bait_prots:
+                if not double_count and b == prey:
+                    continue
+                wfile.write(f'{prey};{b}\n')
+
+    print(f'bait;prey file written to {output_path}')
     return output_path 
