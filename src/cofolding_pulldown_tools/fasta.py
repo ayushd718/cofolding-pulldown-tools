@@ -24,10 +24,12 @@ def clean_fasta(fasta_file: os.PathLike):
         if seq:
             new_file.append(seq)
     
-    with open(f"{root}_cleaned{ext}", 'w') as file:
+    output_path = f"{root}_cleaned{ext}"
+    with open(output_path, 'w') as file:
         file.write("\n".join(new_file))
     
-    return print(f"cleaned fasta file written to {root}_cleaned{ext}")
+    print(f"cleaned fasta file written to {output_path}")
+    return output_path
 
 def slice_fasta(fasta_file: os.PathLike, max_length: int, window: int | None):
 
@@ -93,10 +95,12 @@ def slice_fasta(fasta_file: os.PathLike, max_length: int, window: int | None):
                     new_file.append(sliced_header)
                     new_file.append(sliced_fasta) 
 
-    with open(f"{root}_sliced{ext}", 'w') as file:
+    output_path = f"{root}_sliced{ext}"
+    with open(output_path, 'w') as file:
         file.write("\n".join(new_file))
     
-    return print(f"sliced fasta file written to {root}_sliced{ext}") 
+    print(f"sliced fasta file written to {output_path}")
+    return output_path
 
 def generate_bait_prey(prey_fasta: os.PathLike, bait: str, double_count: bool = False):
     """
@@ -106,18 +110,20 @@ def generate_bait_prey(prey_fasta: os.PathLike, bait: str, double_count: bool = 
     root, ext2 = os.path.splitext(os.path.abspath(prey_fasta))
 
     if ';' in bait: 
-        bait_prots = bait.split(';')
+        bait_prots = [b.strip() for b in bait.split(';')]
     else:
-        bait_prots = [bait]
+        bait_prots = [bait.strip()]
 
-    with open(prey_fasta, 'r') as rfile, open(f'{base_name}_complex.txt', 'w') as wfile:
+    output_path = f'{base_name}_complex.txt'
+    with open(prey_fasta, 'r') as rfile, open(output_path, 'w') as wfile:
         for line in rfile:
             if line.startswith('>'):
-                processed_line = line.replace('>', '')
+                processed_line = line.strip().lstrip('>')
                 for prot in bait_prots:
                     if not double_count:
                         if prot == processed_line:
                             continue
-                    wfile.write(f'{prot};{processed_line}')
+                    wfile.write(f'{prot};{processed_line}\n')
 
-    return print(f'bait;prey file written to {root}_complex.txt') 
+    print(f'bait;prey file written to {root}_complex.txt')
+    return output_path 

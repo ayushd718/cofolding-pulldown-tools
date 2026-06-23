@@ -14,7 +14,7 @@ def main():
 
     fetch_query = fetch_sub.add_parser("query")
     fetch_query.add_argument("--query")
-    fetch_query.add_argument("--taxonomy_id")
+    fetch_query.add_argument("--taxonomy_id", type=int)
     fetch_query.add_argument("--reviewed")
 
     fetch_acc = fetch_sub.add_parser("acc")
@@ -25,8 +25,8 @@ def main():
 
     fasta_slice = fasta_sub.add_parser("slice")
     fasta_slice.add_argument("--file", required=True)
-    fasta_slice.add_argument("--max_slice", required=True)
-    fasta_slice.add_argument("--window")
+    fasta_slice.add_argument("--max_slice", type=int, required=True)
+    fasta_slice.add_argument("--window", type=int)
 
     fasta_complex = fasta_sub.add_parser("complex")
     fasta_complex.add_argument("--file", required=True)

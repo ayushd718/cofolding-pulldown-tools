@@ -1,7 +1,5 @@
 import requests 
 import os
-import random
-import time
 
 def fetch_fasta_by_query(query: str | None, taxonomy_id: int | None, reviewed: str | None):
     
