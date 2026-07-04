@@ -18,6 +18,10 @@ analysis = [
     "numpy>=2.2.6",
     "pandaprot>=1.1.0",
 ]
+domains = [
+    "numpy>=2.2.6",
+    "networkx>=3.0",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

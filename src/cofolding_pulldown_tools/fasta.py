@@ -1,6 +1,29 @@
 import os
 import math
 
+
+def iter_fasta(fasta_file: os.PathLike):
+    """Yield (identifier, gene, sequence) for each record in a FASTA file.
+
+    Handles UniProt headers (>sp|ACC|NAME ... GN=GENE -> id=ACC, gene=GENE) and
+    already-simplified/sliced headers (>ACC_NAME_1-308 -> id and gene both the
+    first whitespace token), concatenating wrapped sequence lines.
+    """
+    ident, gene, seq = None, None, []
+    with open(os.path.abspath(fasta_file)) as fh:
+        for line in fh:
+            if line.startswith(">"):
+                if ident is not None:
+                    yield ident, gene, "".join(seq)
+                ident = line.split("|")[1] if "|" in line else line[1:].split()[0]
+                gene = next((t[3:] for t in line.split() if t.startswith("GN=")), ident)
+                seq = []
+            else:
+                seq.append(line.strip())
+        if ident is not None:
+            yield ident, gene, "".join(seq)
+
+
 def clean_fasta(fasta_file: os.PathLike):
 
     abs_path = os.path.abspath(fasta_file)

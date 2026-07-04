@@ -4,10 +4,13 @@ A command-line toolkit designed to facilitate high-throughput protein sequence p
 
 ## Key Features
 
-- **Automated FASTA Retrieval**: Fetch sequences directly from UniProt via query strings or accession lists.
+- **Automated FASTA Retrieval**: Fetch sequences directly from UniProt via query strings, accession lists, or gene-symbol lists.
 - **Header Standardization**: Convert complex UniProt headers into simplified, machine-readable formats.
 - **Sequence Slicing**: Automatically slice long sequences into fixed-length overlapping windows to suit modeling constraints.
+- **Domain Splitting**: Split proteins into structure-based domain fragments from the AlphaFold DB PAE (coherent folding units rather than fixed windows).
 - **Complex Generation**: Generate bait-prey pair files for high-throughput interaction screens.
+- **Boltz-2 Inputs**: Generate protein × ligand cofolding YAMLs with affinity prediction.
+- **GPU MSAs**: Batch MSA generation via GPU-accelerated MMseqs2 (`scripts/run_msa_mmseqs_gpu.sh`).
 - **Result Analysis**: Analyze cofolding outputs to generate summary CSVs including ipSAE, pDockQ, and iPTM scores.
 
 ## Requirements
@@ -55,9 +58,12 @@ uv run cpt --help
 | :--- | :--- |
 | `cpt fetch query` | Fetch FASTA by query string/taxonomy/reviewed status |
 | `cpt fetch acc` | Fetch FASTA by a file containing accession IDs |
+| `cpt fetch genes` | Fetch one canonical sequence per gene symbol |
 | `cpt fasta clean` | Simplify FASTA headers and format sequence lines |
 | `cpt fasta slice` | Slice large sequences into overlapping windows |
 | `cpt fasta complex` | Generate a bait-prey pairing file |
+| `cpt fasta domains` | Split proteins into domain fragments using AlphaFold DB PAE |
+| `cpt boltz inputs` | Generate Boltz-2 cofolding input YAMLs (protein × ligand) |
 | `cpt analyze` | Analyze cofolding results and generate a summary CSV |
 
 ### Fetching from UniProt
@@ -74,6 +80,17 @@ cpt fetch query \
 ```bash
 cpt fetch acc --file accessions.txt
 ```
+
+#### By Gene Symbol
+For a list of gene symbols (one per line), fetch the reviewed (Swiss-Prot)
+canonical human sequence for each. Symbols with no reviewed entry fall back to
+the best unreviewed (TrEMBL) entry unless `--reviewed_only` is set.
+```bash
+cpt fetch genes --file genes.txt --organism_id 9606
+```
+Writes `genes.fasta` (raw UniProt headers, ready for `cpt fasta clean`),
+`genes_report.tsv` (gene → accession, status, header), and `genes_failed.txt`
+(unresolved symbols, which can be re-run through the same command).
 
 ### FASTA Processing
 
@@ -100,6 +117,43 @@ cpt fasta complex \
     --double_count
 ```
 Generates a `file_complex.txt` file mapping bait proteins to all sequences in the input FASTA. This function validates that all provided bait proteins are present as headers in the input FASTA file.
+
+#### Splitting by Domain (AlphaFold DB)
+Splits each protein into structure-based domain fragments by clustering the
+AlphaFold DB PAE matrix (residues AlphaFold places confidently relative to each
+other become one domain). A better-founded alternative to fixed-width slicing —
+fragments are coherent folding units rather than arbitrary windows.
+```bash
+cpt fasta domains --file file.fasta --ndr exclude
+```
+`--ndr` decides what happens to non-domain residues (disordered tails/linkers):
+`exclude` drops them (default), `keep` emits each linker as its own fragment,
+`pad` extends domains into flanking linker. `--resolution` tunes granularity
+(0.1–0.5 stable; higher over-splits). Writes `<file>_domains.fasta` and a
+`<file>_domains.tsv` map; proteins whose AFDB model is fragmented (very long
+sequences) are logged to `_multifragment.txt` for separate handling.
+
+> Requires the optional dependencies: `pip install "cofolding-pulldown-tools[domains]"`
+
+### Generating Boltz-2 Inputs
+Writes one Boltz-2 YAML per protein, each paired with a ligand (by SMILES), with
+affinity prediction enabled by default. MSAs are referenced as
+`<msa_dir>/<id>.a3m` — the naming produced by `scripts/run_msa_mmseqs_gpu.sh`.
+```bash
+cpt boltz inputs --file file.fasta --ligands ligands.smiles --ligand_name myligand
+```
+`--msa_mode` is `precomputed` (default), `empty` (single-sequence), or `server`
+(fetch at predict time with `boltz predict --use_msa_server`). Proteins longer
+than `--max_len` are skipped and recorded in `manifest.csv`.
+
+### Generating MSAs (GPU MMseqs2)
+`scripts/run_msa_mmseqs_gpu.sh` drives ColabFold's GPU MMseqs2 search to produce
+one `<accession>.a3m` per sequence (the naming the Boltz inputs expect). Requires
+an NVIDIA GPU, a GPU build of MMseqs2, `colabfold_search`, and the ColabFold
+databases; see the header of the script for setup.
+```bash
+scripts/run_msa_mmseqs_gpu.sh sequences.fasta $HOME/colabfold_db msa
+```
 
 ### Analyzing Results
 ```bash
