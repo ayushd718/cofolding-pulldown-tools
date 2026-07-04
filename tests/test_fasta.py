@@ -52,7 +52,8 @@ def test_generate_bait_prey_validated(tmp_path):
     input_file.write_text(CLEANED_FASTA)
     
     # Baits must exist in CLEANED_FASTA (which has >A0A087X1C5_CP2D7_HUMAN and >A0A0B4J2F0_PIOS1_HUMAN)
-    bait = "A0A087X1C5_CP2D7_HUMAN;A0A0B4J2F0_PIOS1_HUMAN"
+    # Bait list is comma-separated on input; output pairing lines are 'prey;bait'.
+    bait = "A0A087X1C5_CP2D7_HUMAN,A0A0B4J2F0_PIOS1_HUMAN"
     
     # Run the function
     output_path = generate_bait_prey(input_file, bait, double_count=False)
