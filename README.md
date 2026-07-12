@@ -8,6 +8,7 @@ A command-line toolkit designed to facilitate high-throughput protein sequence p
 - **Header Standardization**: Convert complex UniProt headers into simplified, machine-readable formats.
 - **Sequence Slicing**: Automatically slice long sequences into fixed-length overlapping windows to suit modeling constraints.
 - **Domain Splitting**: Split proteins into structure-based domain fragments from the AlphaFold DB PAE (coherent folding units rather than fixed windows).
+- **Window Deduplication**: Collapse near-identical windowed fragments of tandem-repeat proteins (via `mmseqs easy-cluster`) so repeat domains aren't folded redundantly.
 - **Complex Generation**: Generate bait-prey pair files for high-throughput interaction screens.
 - **Boltz-2 Inputs**: Generate protein × ligand cofolding YAMLs with affinity prediction.
 - **GPU MSAs**: Batch MSA generation via GPU-accelerated MMseqs2 (`scripts/run_msa_mmseqs_gpu.sh`).
@@ -63,6 +64,8 @@ uv run cpt --help
 | `cpt fasta slice` | Slice large sequences into overlapping windows |
 | `cpt fasta complex` | Generate a bait-prey pairing file |
 | `cpt fasta domains` | Split proteins into domain fragments using AlphaFold DB PAE |
+| `cpt fasta reformat-windows` | Rewrite `slice` output headers with real gene symbols |
+| `cpt fasta dedup` | Cluster near-identical sequences and keep one representative per cluster |
 | `cpt boltz inputs` | Generate Boltz-2 cofolding input YAMLs (protein × ligand) |
 | `cpt analyze` | Analyze cofolding results and generate a summary CSV |
 
@@ -134,6 +137,46 @@ cpt fasta domains --file file.fasta --ndr exclude
 sequences) are logged to `_multifragment.txt` for separate handling.
 
 > Requires the optional dependencies: `pip install "cofolding-pulldown-tools[domains]"`
+
+#### Reformatting Windowed-Slice Headers
+`cpt fasta clean` names each header after the UniProt *entry mnemonic*
+(`>ACC_NAME`), which often diverges from the real gene symbol (`CAD23` is the
+mnemonic for `CDH23`). After slicing, that mismatch propagates into
+`>ACC_NAME,START-END`. This looks the true gene symbol up by accession from an
+uncleaned reference FASTA and rewrites headers to `ACC.wSTART-END GN=GENE`:
+```bash
+cpt fasta reformat-windows \
+    --file file_cleaned_sliced.fasta \
+    --gene_map file.fasta
+```
+`--gene_map` is the *original*, uncleaned FASTA (the one `clean_fasta` was run
+on) — it still has `GN=` tags. Writes `<file>_windows.fasta` plus a manifest
+CSV (`window_id, accession, gene, start, end, window_len`). The period-joined
+window tag (rather than underscore-joined) keeps `accession_gene__ligand`
+job-name parsing (`cpt boltz inputs`, `cpt analyze`) working unmodified, since
+an accession may itself contain a hyphen (isoform suffixes, e.g. `Q99102-10`)
+but never a period.
+
+#### Deduplicating Near-Identical Sequences
+Slicing a giant tandem-repeat protein (LDL-repeat receptors, cadherin-repeat
+proteins, mucin VNTR domains, ...) into fixed windows produces many
+near-identical windows, one per repeat copy — folding every copy independently
+wastes compute on the same job run twice. This clusters by sequence identity
+(`mmseqs easy-cluster`) and keeps one representative per cluster:
+```bash
+cpt fasta dedup \
+    --file file_windows.fasta \
+    --min_seq_id 0.95 \
+    --coverage 0.8 \
+    --cov_mode 1
+```
+Writes `<file>_dedup.fasta` (representatives) and
+`<file>_dedup_clusters.tsv` (representative↔member map, so a dropped
+duplicate can be traced back to the window it collapsed into). Proteins
+without close-repeat structure keep effectively all of their windows.
+
+> Requires the `mmseqs` binary on `PATH` (not a pip package — install via
+> `conda install -c conda-forge -c bioconda mmseqs2`).
 
 ### Generating Boltz-2 Inputs
 Writes one Boltz-2 YAML per protein, each paired with a ligand (by SMILES), with

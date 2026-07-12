@@ -1,3 +1,4 @@
+import csv
 import os
 import math
 
@@ -124,6 +125,78 @@ def slice_fasta(fasta_file: os.PathLike, max_length: int, window: int | None):
     
     print(f"sliced fasta file written to {output_path}")
     return output_path
+
+def reformat_sliced_windows(sliced_fasta: os.PathLike, gene_map_fasta: os.PathLike):
+    """Rewrite `slice_fasta` output headers into a form downstream tooling
+    (this toolkit's `boltz.generate_boltz_inputs`, and job-name parsing that
+    splits `accession_gene__ligand`) can consume directly.
+
+    `slice_fasta` (fed a `clean_fasta`d input) names each window after the
+    UniProt *entry mnemonic* baked into the cleaned header
+    (`>ACC_NAME,START-END`, e.g. `>Q9H251_CAD23_HUMAN,1-1802`) -- not the real
+    gene symbol (`CAD23` is the mnemonic for `CDH23`; mnemonics and gene
+    symbols frequently diverge). This looks the true gene symbol up by
+    accession from `gene_map_fasta` (an uncleaned UniProt FASTA that still
+    has `GN=` tags -- typically the same FASTA `clean_fasta`'s input came
+    from) and rewrites each header to `{ACC}.w{START}-{END} GN={GENE}`. The
+    period-joined window tag (rather than underscore-joined) keeps
+    `accession_gene__ligand`-style job-name splitting working unmodified,
+    since a UniProt accession may itself contain a hyphen (isoform suffixes,
+    e.g. `Q99102-10`) but never a period.
+
+    Writes `{root}_windows{ext}` plus a manifest CSV
+    (`{root}_windows_manifest.csv`: window_id, accession, gene, start, end,
+    window_len) and returns (fasta_path, manifest_path).
+    """
+    gene_map = {ident: gene for ident, gene, _ in iter_fasta(gene_map_fasta)}
+
+    abs_path = os.path.abspath(sliced_fasta)
+    root, ext = os.path.splitext(abs_path)
+
+    records = []
+    header, seq = None, ""
+    with open(abs_path) as file:
+        for line in file:
+            line = line.rstrip("\n")
+            if line.startswith(">"):
+                if header is not None:
+                    records.append((header, seq))
+                header, seq = line[1:], ""
+            else:
+                seq += line
+        if header is not None:
+            records.append((header, seq))
+
+    rows = []
+    new_file = []
+    for header, seq in records:
+        # header shape: "ACC_NAME,START-END" (ACC may itself contain a "-"
+        # for isoforms, e.g. "Q99102-10_MUC4_HUMAN,4419-6419")
+        acc_name, coord = header.rsplit(",", 1)
+        start, end = coord.split("-")
+        acc = acc_name.split("_", 1)[0]
+        gene = gene_map.get(acc, acc)
+        window_id = f"{acc}.w{start}-{end}"
+        new_file.append(f">{window_id} GN={gene}")
+        new_file.append(seq)
+        rows.append(dict(window_id=window_id, accession=acc, gene=gene,
+                         start=start, end=end, window_len=len(seq)))
+
+    out_fasta = f"{root}_windows{ext}"
+    with open(out_fasta, "w") as file:
+        file.write("\n".join(new_file))
+
+    manifest_path = f"{root}_windows_manifest.csv"
+    with open(manifest_path, "w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=["window_id", "accession", "gene",
+                                           "start", "end", "window_len"])
+        w.writeheader()
+        w.writerows(rows)
+
+    print(f"reformatted windows written to {out_fasta} ({len(rows)} windows)")
+    print(f"manifest written to {manifest_path}")
+    return out_fasta, manifest_path
+
 
 def generate_bait_prey(prey_fasta: os.PathLike, bait: str, double_count: bool = False):
     """

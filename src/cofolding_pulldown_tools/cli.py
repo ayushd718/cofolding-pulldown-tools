@@ -1,9 +1,10 @@
 import argparse
-from .fasta import clean_fasta, slice_fasta, generate_bait_prey
+from .fasta import clean_fasta, slice_fasta, generate_bait_prey, reformat_sliced_windows
 from .fetch import fetch_fasta_by_query, fetch_fasta_by_accession, fetch_fasta_by_gene_names
 from .analysis import generate_csv
 from .domains import split_domains_by_afdb
 from .boltz import generate_boltz_inputs
+from .cluster import dedup_sequences
 
 def main():
     parser = argparse.ArgumentParser(prog="cpt", description="FASTA utilities for Uniprot workflows")
@@ -12,7 +13,7 @@ def main():
 
     fetch_parser = subparsers.add_parser("fetch", help="Use 'query' or 'acc' subcommands to fetch fasta files from uniprot.")
     fetch_sub = fetch_parser.add_subparsers(dest="fetch_mode", required=True)
-    fasta_parser = subparsers.add_parser("fasta", help="Use 'clean', 'slice', 'complex' or 'domains' subcommands to process fasta files")
+    fasta_parser = subparsers.add_parser("fasta", help="Use 'clean', 'slice', 'complex', 'domains', 'reformat-windows' or 'dedup' subcommands to process fasta files")
     fasta_sub = fasta_parser.add_subparsers(dest="fasta_mode", required=True)
 
     boltz_parser = subparsers.add_parser("boltz", help="Generate Boltz-2 cofolding inputs")
@@ -66,6 +67,22 @@ def main():
     fasta_domains.add_argument("--resolution", type=float, default=0.3,
         help="Louvain resolution; 0.1-0.5 stable, higher over-splits domains")
     fasta_domains.add_argument("--limit", type=int, default=0, help="Process only first N (debug)")
+
+    fasta_reformat_windows = fasta_sub.add_parser("reformat-windows",
+        help="Rewrite `slice` output headers (ACC.wSTART-END GN=GENE) with real gene symbols")
+    fasta_reformat_windows.add_argument("--file", required=True, help="FASTA produced by `cpt fasta slice`")
+    fasta_reformat_windows.add_argument("--gene_map", required=True,
+        help="Uncleaned UniProt FASTA (has GN= tags) to look up real gene symbols by accession")
+
+    fasta_dedup = fasta_sub.add_parser("dedup",
+        help="Cluster near-identical sequences (e.g. tandem-repeat windows) and keep one representative per cluster")
+    fasta_dedup.add_argument("--file", required=True, help="Input FASTA")
+    fasta_dedup.add_argument("--min_seq_id", type=float, default=0.95,
+        help="Identity threshold to cluster two sequences together (default 0.95)")
+    fasta_dedup.add_argument("--coverage", type=float, default=0.8,
+        help="Minimum alignment coverage (mmseqs -c)")
+    fasta_dedup.add_argument("--cov_mode", type=int, default=1,
+        help="mmseqs --cov-mode (default 1: coverage of the shorter sequence)")
 
     boltz_inputs = boltz_sub.add_parser("inputs",
         help="Write one Boltz-2 YAML per protein paired with a ligand")
@@ -129,6 +146,18 @@ def main():
                 overlap=args.overlap,
                 resolution=args.resolution,
                 limit=args.limit,
+            )
+        elif args.fasta_mode == "reformat-windows":
+            reformat_sliced_windows(
+                args.file,
+                gene_map_fasta=args.gene_map,
+            )
+        elif args.fasta_mode == "dedup":
+            dedup_sequences(
+                args.file,
+                min_seq_id=args.min_seq_id,
+                coverage=args.coverage,
+                cov_mode=args.cov_mode,
             )
 
     elif args.command == "boltz":
