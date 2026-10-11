@@ -8,6 +8,7 @@ A command-line toolkit designed to facilitate high-throughput protein sequence p
 - **Header Standardization**: Convert complex UniProt headers into simplified, machine-readable formats.
 - **Sequence Slicing**: Automatically slice long sequences into fixed-length overlapping windows to suit modeling constraints.
 - **Domain Splitting**: Split proteins into structure-based domain fragments from the AlphaFold DB PAE (coherent folding units rather than fixed windows).
+- **Annotation-Driven Domain Packing**: Pack whole UniProt-annotated domains into length-capped fragments for proteins AlphaFold DB has no model for (>2,700 aa), cutting only between domains so none is ever bisected.
 - **Window Deduplication**: Collapse near-identical windowed fragments of tandem-repeat proteins (via `mmseqs easy-cluster`) so repeat domains aren't folded redundantly.
 - **Complex Generation**: Generate bait-prey pair files for high-throughput interaction screens.
 - **Boltz-2 Inputs**: Generate protein × ligand cofolding YAMLs with affinity prediction.
@@ -17,7 +18,7 @@ A command-line toolkit designed to facilitate high-throughput protein sequence p
 ## Requirements
 
 - Python >= 3.10
-- [uv](https://github.com/astral-sh/uv) (recommended for installation and dependency management)
+- `pip`, or [uv](https://github.com/astral-sh/uv) (recommended for development)
 
 ## Installation & Usage
 
@@ -33,6 +34,20 @@ Alternatively, use `pip`:
 ```bash
 pip install git+https://github.com/ayushd718/cofolding-pulldown-tools.git
 ```
+
+Some subcommands need optional dependencies, declared as extras:
+
+```bash
+pip install "cofolding-pulldown-tools[domains] @ git+https://github.com/ayushd718/cofolding-pulldown-tools.git"
+```
+
+- `[domains]` adds numpy and networkx, needed by `cpt fasta domains`
+- `[analysis]` adds ipsae, numpy and pandaprot, needed by `cpt analyze`
+- `cpt fasta dedup` additionally needs the `mmseqs` binary, which is not a pip
+  package: `conda install -c conda-forge -c bioconda mmseqs2`
+
+Everything else, including `cpt fasta uniprot-domains`, needs only the base
+install.
 
 Use the `cpt` command for operations:
 ```bash
@@ -53,6 +68,26 @@ Use `uv run` to execute the CLI within the development environment:
 uv run cpt --help
 ```
 
+Run the test suite:
+```bash
+uv run pytest tests/ -q
+```
+
+### Publishing a Release
+The project is a standard PEP 517 build, so a release needs no extra
+configuration:
+
+```bash
+pip install build twine
+python -m build            # writes dist/*.whl and dist/*.tar.gz
+twine check dist/*         # validates the metadata PyPI will reject on
+twine upload dist/*        # needs a PyPI API token
+```
+
+Bump `version` in `pyproject.toml` first. A version number can never be reused
+on PyPI once uploaded, so `twine check` passing is worth confirming before the
+upload step.
+
 ## CLI Reference
 
 | Subcommand | Action |
@@ -64,6 +99,7 @@ uv run cpt --help
 | `cpt fasta slice` | Slice large sequences into overlapping windows |
 | `cpt fasta complex` | Generate a bait-prey pairing file |
 | `cpt fasta domains` | Split proteins into domain fragments using AlphaFold DB PAE |
+| `cpt fasta uniprot-domains` | Pack whole UniProt-annotated domains into length-capped fragments |
 | `cpt fasta reformat-windows` | Rewrite `slice` output headers with real gene symbols |
 | `cpt fasta dedup` | Cluster near-identical sequences and keep one representative per cluster |
 | `cpt boltz inputs` | Generate Boltz-2 cofolding input YAMLs (protein × ligand) |
@@ -133,10 +169,87 @@ cpt fasta domains --file file.fasta --ndr exclude
 `exclude` drops them (default), `keep` emits each linker as its own fragment,
 `pad` extends domains into flanking linker. `--resolution` tunes granularity
 (0.1–0.5 stable; higher over-splits). Writes `<file>_domains.fasta` and a
-`<file>_domains.tsv` map; proteins whose AFDB model is fragmented (very long
-sequences) are logged to `_multifragment.txt` for separate handling.
+`<file>_domains.tsv` map. Proteins whose AFDB model does not cover the full
+sequence are logged to `_multifragment.txt`. In practice that means anything over
+about 2,700 residues, which is the AlphaFold DB size ceiling: such entries have
+**no model at all**, or only a short isoform model. Use
+`cpt fasta uniprot-domains` for those.
 
 > Requires the optional dependencies: `pip install "cofolding-pulldown-tools[domains]"`
+
+#### Splitting by Domain (UniProt annotation)
+Packs *whole* UniProt-annotated domains into fragments up to `--max_slice`,
+cutting only between one domain's end and the next domain's start. No annotated
+domain is ever bisected.
+
+This exists because `cpt fasta domains` cannot help the proteins that most need
+slicing. AlphaFold DB has no model above roughly 2,700 residues, so FBN1
+(2,871 aa), HSPG2 (4,391 aa) and MUC16 (14,507 aa) return nothing at all, while
+LAMA5, VWF and HMCN1 return only short isoform models covering residues 561,
+351 and 555. UniProt annotation needs no structure model: all 37 proteins over
+2,700 aa in a matrisome test set carry it, 1,174 domain and repeat features in
+total.
+
+```bash
+cpt fasta uniprot-domains --file file.fasta --max_slice 1400
+```
+
+FBN1's 56 domains pack into **2 fragments** at `--max_slice 1400`, against 56
+under naive per-domain splitting and 3 bisected windows under `cpt fasta slice`.
+
+There is deliberately no attempt to find a safe residue inside a linker,
+because there usually is no linker: the median inter-domain gap is 9 residues,
+only 46.5% exceed 10, and inside repeat arrays it collapses to 1-5 residues,
+with tenascin-C's EGF-like domains overlapping outright.
+
+`--ndr` reuses the `exclude`/`keep`/`pad` vocabulary of `cpt fasta domains` and
+adds `tile` (the default), which runs a tandem-period scan over each
+unannotated stretch and emits a representative unit on a hit, falling back to
+overlapping windows otherwise. Structural `Region` annotation such as
+`Triple-helical region` is honoured and subtracted against what the domains
+already cover, which lifts collagen coverage from 20% to 89%. `Region`
+`Disordered` is deliberately ignored: it is predictor-derived and spans
+COL1A1's rigid triple helix in full.
+
+For mucin-heavy input, prefer `--ndr exclude`. MUC16's first 12,066 residues
+are 83% of the protein, carry no annotation and have no recoverable
+periodicity, so the default tiles them into 9 fragments of glycan-covered
+sequence. Any unannotated stretch over `--big_ndr` is reported to stderr and to
+`_large_unannotated.tsv` so the cost is visible. Across the 37-protein test set
+`--ndr exclude` gives 107 fragments against 193.
+
+`--collapse_repeats` groups tandem copies by family *and* qualifier, then
+collapses only those above `--repeat_identity` (default 0.9), writing every
+dropped copy and its representative to `<file>_repeat_clusters.tsv`. It is
+**off by default, and the saving is smaller than it looks.** Measured pairwise
+identity inside single-protein arrays: FBN1's 43 calcium-binding EGF-like
+copies are a median 33% identical with zero pairs above 80%, and HMCN1's 44
+Ig-like copies a median 23%. Nothing collapses at 0.9, and that is correct --
+those are homologous folds with genuinely different binding surfaces. Only
+mucin-type arrays are redundant (MUC16's SEA domains, median 72%). Across the
+test set, collapsing removes 4,634 residues, 3.1% of the output, but raises the
+fragment count from 193 to 235 because a dropped copy splits its run in two.
+Do not lower the threshold below about 0.6; it starts discarding distinct
+domain copies. The fragment-count win in this subcommand comes from packing,
+not deduplication.
+
+Writes `<out_dir>/<file>_uniprot_domains.fasta`, a `<file>_uniprot_domains.tsv`
+fragment map and a `<file>_repeat_clusters.tsv` cluster map, plus
+`_no_annotation.txt`, `_no_features.txt`, `_isoforms_skipped.txt` and
+`_large_unannotated.tsv` where non-empty. Headers are
+`{acc}_{gene}_{tag}_{start}-{end}` with 1-based inclusive coordinates and the
+*real* gene symbol from UniProt, so unlike `slice` output this needs no
+`cpt fasta reformat-windows` pass (and that subcommand will reject it, since it
+requires a comma in the header).
+
+Isoform accessions are skipped: UniProt serves them with a sequence but with no
+feature annotation at all, and canonical coordinates do not apply to an isoform
+sequence, so borrowing them would shift every boundary silently.
+
+Annotation is cached one JSON per accession under
+`<out_dir>/_annotation_cache`, so reruns are fully offline.
+
+> Needs no optional dependencies, unlike `cpt fasta domains` and `cpt fasta dedup`.
 
 #### Reformatting Windowed-Slice Headers
 `cpt fasta clean` names each header after the UniProt *entry mnemonic*

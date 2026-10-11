@@ -3,6 +3,7 @@ from .fasta import clean_fasta, slice_fasta, generate_bait_prey, reformat_sliced
 from .fetch import fetch_fasta_by_query, fetch_fasta_by_accession, fetch_fasta_by_gene_names
 from .analysis import generate_csv
 from .domains import split_domains_by_afdb
+from .annotations import split_domains_by_annotation
 from .boltz import generate_boltz_inputs
 from .cluster import dedup_sequences
 
@@ -13,7 +14,7 @@ def main():
 
     fetch_parser = subparsers.add_parser("fetch", help="Use 'query' or 'acc' subcommands to fetch fasta files from uniprot.")
     fetch_sub = fetch_parser.add_subparsers(dest="fetch_mode", required=True)
-    fasta_parser = subparsers.add_parser("fasta", help="Use 'clean', 'slice', 'complex', 'domains', 'reformat-windows' or 'dedup' subcommands to process fasta files")
+    fasta_parser = subparsers.add_parser("fasta", help="Use 'clean', 'slice', 'complex', 'domains', 'uniprot-domains', 'reformat-windows' or 'dedup' subcommands to process fasta files")
     fasta_sub = fasta_parser.add_subparsers(dest="fasta_mode", required=True)
 
     boltz_parser = subparsers.add_parser("boltz", help="Generate Boltz-2 cofolding inputs")
@@ -67,6 +68,32 @@ def main():
     fasta_domains.add_argument("--resolution", type=float, default=0.3,
         help="Louvain resolution; 0.1-0.5 stable, higher over-splits domains")
     fasta_domains.add_argument("--limit", type=int, default=0, help="Process only first N (debug)")
+
+    fasta_uniprot_domains = fasta_sub.add_parser("uniprot-domains",
+        help="Split proteins into domain fragments using UniProt annotation (works above the AlphaFold DB size limit)")
+    fasta_uniprot_domains.add_argument("--file", required=True, help="Input FASTA")
+    fasta_uniprot_domains.add_argument("--max_slice", type=int, required=True,
+        help="Per-fragment residue cap; whole domains are packed up to this")
+    fasta_uniprot_domains.add_argument("--out_dir", default="uniprot_domains")
+    fasta_uniprot_domains.add_argument("--ndr", choices=["exclude", "keep", "pad", "tile"],
+        default="tile",
+        help="Unannotated residues: exclude (drop), keep (own fragments), pad, tile (period scan then overlapping windows)")
+    fasta_uniprot_domains.add_argument("--min_domain_len", type=int, default=40,
+        help="Repeat features shorter than this are aggregated, not emitted (LRR solenoids)")
+    fasta_uniprot_domains.add_argument("--min_ndr_len", type=int, default=30)
+    fasta_uniprot_domains.add_argument("--pad_len", type=int, default=10)
+    fasta_uniprot_domains.add_argument("--overlap", type=int, default=50,
+        help="Overlap when tiling an unannotated stretch or an over-long domain")
+    fasta_uniprot_domains.add_argument("--repeat_identity", type=float, default=0.9,
+        help="Identity threshold to collapse two repeat copies; below ~0.6 discards distinct domains")
+    fasta_uniprot_domains.add_argument("--collapse_repeats", action="store_true",
+        help="Collapse near-identical repeat copies to one representative per cluster; saves residues but splits runs into more fragments")
+    fasta_uniprot_domains.add_argument("--cache_dir", default=None,
+        help="Annotation cache (default: <out_dir>/_annotation_cache); reruns are offline")
+    fasta_uniprot_domains.add_argument("--big_ndr", type=int, default=1000,
+        help="Warn when an unannotated stretch this long is tiled blindly")
+    fasta_uniprot_domains.add_argument("--delay", type=float, default=0.1)
+    fasta_uniprot_domains.add_argument("--limit", type=int, default=0, help="Process only first N (debug)")
 
     fasta_reformat_windows = fasta_sub.add_parser("reformat-windows",
         help="Rewrite `slice` output headers (ACC.wSTART-END GN=GENE) with real gene symbols")
@@ -145,6 +172,23 @@ def main():
                 max_domain_len=args.max_domain_len,
                 overlap=args.overlap,
                 resolution=args.resolution,
+                limit=args.limit,
+            )
+        elif args.fasta_mode == "uniprot-domains":
+            split_domains_by_annotation(
+                args.file,
+                out_dir=args.out_dir,
+                max_slice=args.max_slice,
+                cache_dir=args.cache_dir,
+                ndr_mode=args.ndr,
+                min_domain_len=args.min_domain_len,
+                min_ndr_len=args.min_ndr_len,
+                pad_len=args.pad_len,
+                overlap=args.overlap,
+                repeat_identity=args.repeat_identity,
+                big_ndr=args.big_ndr,
+                collapse_repeats=args.collapse_repeats,
+                delay=args.delay,
                 limit=args.limit,
             )
         elif args.fasta_mode == "reformat-windows":
